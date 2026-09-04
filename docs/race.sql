@@ -41,6 +41,7 @@ CONSTRAINT FK_Event_Organiser FOREIGN KEY (Organiser_ID)
         ON DELETE CASCADE
 );
 
+--ROUTE Table
 CREATE TABLE Route (
 Route_ID  INT   IDENTITY(1,1) PRIMARY KEY,
 Event_ID  INT   NOT NULL,
