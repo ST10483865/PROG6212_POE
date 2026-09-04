@@ -45,6 +45,7 @@ jobs:
             exit 1
           fi
           echo "SQL script found."
+          
 
       - name: All required files present
         run: echo "docs folder structure is valid — ERD, endpoint plan, and SQL script all found."
