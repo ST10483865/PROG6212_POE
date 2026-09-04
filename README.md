@@ -8,3 +8,9 @@ The system is built around a database with eight core entities. User, Organiser,
 **Organiser** is a user who creates and manages events. Organiser can create, update and delete events and their categories. Organiser can view registrations for Organisers events. Organiser can capture race results once an event has taken place.
 
 **Participant** is a user who takes part in events. Participant can. Search for upcoming events. Participant can register for a category within an event. Participant can view Participants registration and results history. Participant can access race-day information such, as route details and weather conditions.
+
+## Repo structure
+/docs
+_/Section A(erd diagram)
+-/Section B markdown file
+_/Section C sql script
