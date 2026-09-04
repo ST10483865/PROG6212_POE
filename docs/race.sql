@@ -120,7 +120,7 @@ INSERT INTO Route (Event_ID, Starting_Point, Ending_Point, Distance) VALUES
 (3, 'V&A Waterfront',     'Camps Bay',         5.00);
  
 
--- Categories - at least one per Event (each Event gets 2 here)
+-- Categories  at least one per Event (each Event gets 2 here)
 INSERT INTO Category (Event_ID, Category_name) VALUES
 (1, '21km Half Marathon'),
 (1, '10km Fun Run'),
@@ -130,7 +130,7 @@ INSERT INTO Category (Event_ID, Category_name) VALUES
 (3, '15km Road Ride');
  
 
--- Registrations (sample enrolments) - Participants entering Categories
+-- Registrations Participants entering Categories
 INSERT INTO Registration (Category_ID, Participant_ID, Race_num, Registration_date) VALUES
 (1, 1, 'JHB-0001', '2026-09-01'),
 (3, 1, 'PTA-0001', '2026-09-10'),
@@ -138,7 +138,7 @@ INSERT INTO Registration (Category_ID, Participant_ID, Race_num, Registration_da
 (2, 2, 'JHB-0002', '2026-09-05');
  
 
--- Results - sample results for completed registrations
+-- Results sample results for completed registrations
 INSERT INTO Results (Registration_ID, Finish_time, Position) VALUES
 (301, '00:24:15', 1),
 (499, '01:02:40', 45);
