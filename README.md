@@ -19,4 +19,6 @@ _/Section C sql script
 _SQL Server Management Studio 2022
 _draw.io
 
+ ##Youtube Link
+ 
 
