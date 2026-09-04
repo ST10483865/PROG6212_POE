@@ -25,5 +25,5 @@ _draw.io
  ## SCREEN OF CI/CD
  <img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/6226eedf-9884-4a3e-bcac-5ee7561bab6c" />
 
- Create database Raceday_System;
+ 
 
