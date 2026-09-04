@@ -14,3 +14,7 @@ The system is built around a database with eight core entities. User, Organiser,
 _/Section A(erd diagram)
 -/Section B markdown file
 _/Section C sql script
+
+## References
+_SQL Server Management Studio 2022
+_draw.io
