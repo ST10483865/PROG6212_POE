@@ -22,7 +22,7 @@ _draw.io
  ##Youtube Link
  https://youtu.be/S0dWDHe3k0Q
 
- ## SCREEN OF CI/CD
+ ## SCREENSHOOT OF CI/CD WORKFLOW
  <img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/6226eedf-9884-4a3e-bcac-5ee7561bab6c" />
 
  
