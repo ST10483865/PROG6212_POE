@@ -17,4 +17,3 @@ public static class ClaimsExtensions
 
 
 }//end of class
-//end of namesppace
