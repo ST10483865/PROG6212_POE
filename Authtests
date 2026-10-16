@@ -1,0 +1,233 @@
+
+using System.Net;
+using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using RaceDay.Api.Data;
+using RaceDay.Api.Dtos;
+ 
+namespace RaceDay.Tests;
+ 
+/// <summary>User registration, login, logout and session behaviour.</summary>
+public class AuthTests : IClassFixture<ApiFactory>
+{
+    private readonly ApiFactory _factory;
+    public AuthTests(ApiFactory factory) => _factory = factory;
+ 
+    private static RegisterRequest NewRegistration(string role, string? email = null, string password = TestHelpers.Password) => new()
+    {
+        Name = "Sam Tester",
+        Email = email ?? TestHelpers.UniqueEmail(),
+        Password = password,
+        Gender = "Male",
+        Role = role
+    };
+ 
+    // ---------- Registration ----------
+ 
+    [Theory]
+    [InlineData("Organiser")]
+    [InlineData("Participant")]
+    public async Task Register_ValidUser_Returns201WithRoleAndProfileId(string role)
+    {
+        var client = _factory.CreateClient();
+ 
+        var response = await client.PostAsJsonAsync("/api/auth/register", NewRegistration(role));
+ 
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<AuthResponse>();
+        Assert.Equal(role, body!.Role);
+        Assert.True(body.UserId > 0);
+        Assert.True(body.ProfileId > 0);
+    }
+ 
+    [Fact]
+    public async Task Register_DuplicateEmail_Returns409()
+    {
+        var client = _factory.CreateClient();
+        var email = TestHelpers.UniqueEmail();
+        (await client.PostAsJsonAsync("/api/auth/register", NewRegistration("Participant", email))).EnsureSuccessStatusCode();
+ 
+        var second = await client.PostAsJsonAsync("/api/auth/register", NewRegistration("Organiser", email));
+ 
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Register_AdminRole_Returns400()
+    {
+        var client = _factory.CreateClient();
+ 
+        var response = await client.PostAsJsonAsync("/api/auth/register", NewRegistration("Admin"));
+ 
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Register_ShortPassword_Returns400()
+    {
+        var client = _factory.CreateClient();
+ 
+        var response = await client.PostAsJsonAsync("/api/auth/register", NewRegistration("Participant", password: "short"));
+ 
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Register_InvalidEmail_Returns400()
+    {
+        var client = _factory.CreateClient();
+ 
+        var response = await client.PostAsJsonAsync("/api/auth/register", NewRegistration("Participant", email: "not-an-email"));
+ 
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Register_StoresHashedPassword_NotPlainText()
+    {
+        var client = _factory.CreateClient();
+        var email = TestHelpers.UniqueEmail();
+        (await client.PostAsJsonAsync("/api/auth/register", NewRegistration("Participant", email))).EnsureSuccessStatusCode();
+ 
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<RaceDayDbContext>();
+        var user = await db.Users.SingleAsync(u => u.Email == email);
+ 
+        Assert.False(string.IsNullOrWhiteSpace(user.PasswordHash));
+        Assert.NotEqual(TestHelpers.Password, user.PasswordHash);
+        Assert.DoesNotContain(TestHelpers.Password, user.PasswordHash);
+    }
+ 
+    // ---------- Login ----------
+ 
+    [Fact]
+    public async Task Login_ValidCredentials_Returns200WithRole()
+    {
+        var client = _factory.CreateClient();
+        var email = TestHelpers.UniqueEmail();
+        (await client.PostAsJsonAsync("/api/auth/register", NewRegistration("Organiser", email))).EnsureSuccessStatusCode();
+ 
+        var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest { Email = email, Password = TestHelpers.Password });
+ 
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<AuthResponse>();
+        Assert.Equal("Organiser", body!.Role);
+    }
+ 
+    [Fact]
+    public async Task Login_WrongPassword_Returns401()
+    {
+        var client = _factory.CreateClient();
+        var email = TestHelpers.UniqueEmail();
+        (await client.PostAsJsonAsync("/api/auth/register", NewRegistration("Participant", email))).EnsureSuccessStatusCode();
+ 
+        var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest { Email = email, Password = "WrongPassword1" });
+ 
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Login_UnknownEmail_Returns401()
+    {
+        var client = _factory.CreateClient();
+ 
+        var response = await client.PostAsJsonAsync("/api/auth/login",
+            new LoginRequest { Email = TestHelpers.UniqueEmail(), Password = TestHelpers.Password });
+ 
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+ 
+    // ---------- Session ----------
+ 
+    [Fact]
+    public async Task ProtectedEndpoint_WithoutLogin_Returns401()
+    {
+        var client = _factory.CreateClient();
+ 
+        var response = await client.GetAsync("/api/users/1");
+ 
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Session_KeepsUserAndRole_ForLaterRequests()
+    {
+        var (client, auth) = await TestHelpers.LoginAsync(_factory, "Participant");
+ 
+        var response = await client.GetAsync($"/api/users/{auth.UserId}");
+ 
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var user = await response.Content.ReadFromJsonAsync<UserResponse>();
+        Assert.Equal("Participant", user!.Role);
+        Assert.Equal(auth.UserId, user.UserId);
+    }
+ 
+    [Fact]
+    public async Task Logout_EndsSession_SoProtectedEndpointReturns401()
+    {
+        var (client, auth) = await TestHelpers.LoginAsync(_factory, "Organiser");
+ 
+        var logout = await client.PostAsync("/api/auth/logout", null);
+        var after = await client.GetAsync($"/api/users/{auth.UserId}");
+ 
+        Assert.Equal(HttpStatusCode.OK, logout.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, after.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Logout_WithoutLogin_Returns401()
+    {
+        var client = _factory.CreateClient();
+ 
+        var response = await client.PostAsync("/api/auth/logout", null);
+ 
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+ 
+    // ---------- User profile ----------
+ 
+    [Fact]
+    public async Task Profile_UserCannotViewAnotherUsersProfile_Returns403()
+    {
+        var (clientA, _) = await TestHelpers.LoginAsync(_factory, "Participant");
+        var (_, authB) = await TestHelpers.LoginAsync(_factory, "Organiser");
+ 
+        var response = await clientA.GetAsync($"/api/users/{authB.UserId}");
+ 
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Profile_UserCanUpdateOwnProfile_Returns200()
+    {
+        var (client, auth) = await TestHelpers.LoginAsync(_factory, "Participant");
+ 
+        var response = await client.PutAsJsonAsync($"/api/users/{auth.UserId}", new UpdateUserRequest
+        {
+            Name = "Updated Name",
+            Contact = "0821112222",
+            Email = TestHelpers.UniqueEmail(),
+            Gender = "Female"
+        });
+ 
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var user = await response.Content.ReadFromJsonAsync<UserResponse>();
+        Assert.Equal("Updated Name", user!.Name);
+    }
+ 
+    [Fact]
+    public async Task Profile_UserCannotUpdateAnotherUsersProfile_Returns403()
+    {
+        var (clientA, _) = await TestHelpers.LoginAsync(_factory, "Participant");
+        var (_, authB) = await TestHelpers.LoginAsync(_factory, "Participant");
+ 
+        var response = await clientA.PutAsJsonAsync($"/api/users/{authB.UserId}", new UpdateUserRequest
+        {
+            Name = "Hacker", Email = TestHelpers.UniqueEmail(), Gender = "Male"
+        });
+ 
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+}
+ 
