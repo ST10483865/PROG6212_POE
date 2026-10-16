@@ -1,0 +1,159 @@
+
+using System.Net;
+using System.Net.Http.Json;
+using RaceDay.Api.Dtos;
+ 
+namespace RaceDay.Tests;
+ 
+/// <summary>Each role is rejected from the other role's functionality, and anonymous users from everything non-public.</summary>
+public class RoleAccessTests : IClassFixture<ApiFactory>
+{
+    private readonly ApiFactory _factory;
+    public RoleAccessTests(ApiFactory factory) => _factory = factory;
+ 
+    // ---------- Participant attempting Organiser functionality ----------
+ 
+    [Fact]
+    public async Task Participant_CannotCreateEvent_Returns403()
+    {
+        var (participant, _) = await TestHelpers.LoginAsync(_factory, "Participant");
+ 
+        var response = await participant.PostAsJsonAsync("/api/events", TestHelpers.NewEventRequest());
+ 
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Participant_CannotUpdateOrDeleteEvents_Returns403()
+    {
+        var (organiser, _) = await TestHelpers.LoginAsync(_factory, "Organiser");
+        var (participant, _) = await TestHelpers.LoginAsync(_factory, "Participant");
+        var ev = await TestHelpers.CreateEventAsync(organiser);
+ 
+        var put = await participant.PutAsJsonAsync($"/api/events/{ev.EventId}", new EventUpdateRequest
+        {
+            Name = "x", EventType = "Run", Location = "x", Date = new DateOnly(2026, 1, 1), Time = new TimeOnly(6, 0)
+        });
+        var delete = await participant.DeleteAsync($"/api/events/{ev.EventId}");
+ 
+        Assert.Equal(HttpStatusCode.Forbidden, put.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, delete.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Participant_CannotCreateCategory_Returns403()
+    {
+        var (organiser, _) = await TestHelpers.LoginAsync(_factory, "Organiser");
+        var (participant, _) = await TestHelpers.LoginAsync(_factory, "Participant");
+        var ev = await TestHelpers.CreateEventAsync(organiser);
+ 
+        var response = await participant.PostAsJsonAsync($"/api/events/{ev.EventId}/categories",
+            new CategoryRequest { CategoryName = "Nope", EntryFee = 0m });
+ 
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Participant_CannotCaptureResults_Returns403()
+    {
+        var (organiser, _) = await TestHelpers.LoginAsync(_factory, "Organiser");
+        var (participant, _) = await TestHelpers.LoginAsync(_factory, "Participant");
+        var ev = await TestHelpers.CreateEventAsync(organiser);
+        var category = await TestHelpers.CreateCategoryAsync(organiser, ev.EventId);
+        var registration = await TestHelpers.EnrolAsync(participant, category.CategoryId);
+ 
+        var response = await participant.PostAsJsonAsync("/api/results",
+            new ResultRequest { RegistrationId = registration.RegistrationId, FinishTime = TimeSpan.FromMinutes(50), Position = 1 });
+ 
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Participant_CannotViewEventEnrolmentList_Returns403()
+    {
+        var (organiser, _) = await TestHelpers.LoginAsync(_factory, "Organiser");
+        var (participant, _) = await TestHelpers.LoginAsync(_factory, "Participant");
+        var ev = await TestHelpers.CreateEventAsync(organiser);
+ 
+        var response = await participant.GetAsync($"/api/events/{ev.EventId}/registrations");
+ 
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+ 
+    // ---------- Organiser attempting Participant functionality ----------
+ 
+    [Fact]
+    public async Task Organiser_CannotEnrolInAnEvent_Returns403()
+    {
+        var (organiser, _) = await TestHelpers.LoginAsync(_factory, "Organiser");
+        var ev = await TestHelpers.CreateEventAsync(organiser);
+        var category = await TestHelpers.CreateCategoryAsync(organiser, ev.EventId);
+ 
+        var response = await organiser.PostAsJsonAsync("/api/registrations", new RegistrationRequest { CategoryId = category.CategoryId });
+ 
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Organiser_CannotViewParticipantRegistrationsOrResults_Returns403()
+    {
+        var (organiser, auth) = await TestHelpers.LoginAsync(_factory, "Organiser");
+ 
+        var registrations = await organiser.GetAsync($"/api/participants/{auth.ProfileId}/registrations");
+        var results = await organiser.GetAsync($"/api/participants/{auth.ProfileId}/results");
+ 
+        Assert.Equal(HttpStatusCode.Forbidden, registrations.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, results.StatusCode);
+    }
+ 
+    [Fact]
+    public async Task Organiser_CannotCaptureResultsForAnotherOrganisersEvent_Returns403()
+    {
+        var (owner, _) = await TestHelpers.LoginAsync(_factory, "Organiser");
+        var (other, _) = await TestHelpers.LoginAsync(_factory, "Organiser");
+        var (participant, _) = await TestHelpers.LoginAsync(_factory, "Participant");
+        var ev = await TestHelpers.CreateEventAsync(owner);
+        var category = await TestHelpers.CreateCategoryAsync(owner, ev.EventId);
+        var registration = await TestHelpers.EnrolAsync(participant, category.CategoryId);
+ 
+        var response = await other.PostAsJsonAsync("/api/results",
+            new ResultRequest { RegistrationId = registration.RegistrationId, FinishTime = TimeSpan.FromMinutes(40), Position = 1 });
+ 
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+ 
+    // ---------- Participants cannot see each other's data ----------
+ 
+    [Fact]
+    public async Task Participant_CannotViewAnotherParticipantsRegistrationsOrResults_Returns403()
+    {
+        var (a, _) = await TestHelpers.LoginAsync(_factory, "Participant");
+        var (_, authB) = await TestHelpers.LoginAsync(_factory, "Participant");
+ 
+        var registrations = await a.GetAsync($"/api/participants/{authB.ProfileId}/registrations");
+        var results = await a.GetAsync($"/api/participants/{authB.ProfileId}/results");
+ 
+        Assert.Equal(HttpStatusCode.Forbidden, registrations.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, results.StatusCode);
+    }
+ 
+    // ---------- Anonymous users ----------
+ 
+    [Fact]
+    public async Task Anonymous_CannotAccessNonPublicEndpoints_Returns401()
+    {
+        var anonymous = _factory.CreateClient();
+ 
+        var enrol = await anonymous.PostAsJsonAsync("/api/registrations", new RegistrationRequest { CategoryId = 1 });
+        var myResults = await anonymous.GetAsync("/api/participants/1/results");
+        var eventRegistrations = await anonymous.GetAsync("/api/events/1/registrations");
+        var capture = await anonymous.PostAsJsonAsync("/api/results",
+            new ResultRequest { RegistrationId = 1, FinishTime = TimeSpan.FromMinutes(30) });
+ 
+        Assert.Equal(HttpStatusCode.Unauthorized, enrol.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, myResults.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, eventRegistrations.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, capture.StatusCode);
+    }
+}
+ 
