@@ -3,7 +3,7 @@
 namespace RaceDay_api.Dtos;
 
 public class EventRequest
-{//satart of events class
+{//start of class
     /// <example>Soweto Marathon</example>
     [Required, StringLength(200)] public required string Name { get; set; }
     [StringLength(1000)] public string? Description { get; set; }
@@ -21,7 +21,7 @@ public class EventRequest
     /// <summary>Route distance in kilometres.</summary>
     /// <example>21.1</example>
     [Range(typeof(decimal), "0.1", "1000")] public required decimal Distance { get; set; }
-}//end of class
+}
 
 public class EventUpdateRequest
 {
@@ -41,6 +41,9 @@ public record RouteResponse(int RouteId, string StartingPoint, string EndingPoin
 
 public record EventResponse(
     int EventId, int OrganiserId, string Name, string? Description, string EventType,
-    string Location, DateOnly Date, TimeOnly Time, RouteResponse? Route);
+    string Location, DateOnly Date, TimeOnly Time, RouteResponse? Route, string? BannerUrl);
 
-
+//One row of the Organiser dashboard: an event plus how many participants have enrolled
+public record EventSummaryResponse(
+    int EventId, string Name, string EventType, string Location, DateOnly Date, TimeOnly Time,
+    decimal? Distance, int CategoryCount, int EnrolmentCount, string? BannerUrl);

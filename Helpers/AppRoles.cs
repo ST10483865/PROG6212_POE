@@ -21,5 +21,16 @@
         public static string? Normalise(string? type) =>
             Allowed.FirstOrDefault(t => string.Equals(t, type?.Trim(), StringComparison.OrdinalIgnoreCase));
     }//End of Event Type class
+    public static class RegistrationStatuses
+    {
+        public const string Pending = "Pending";
+        public const string Confirmed = "Confirmed";
+
+        public static string? Normalise(string? status) =>
+            string.Equals(status?.Trim(), Pending, StringComparison.OrdinalIgnoreCase) ? Pending :
+            string.Equals(status?.Trim(), Confirmed, StringComparison.OrdinalIgnoreCase) ? Confirmed :
+            null;
+    }
+
 
 }//end of namespace

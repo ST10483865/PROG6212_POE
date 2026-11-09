@@ -7,6 +7,7 @@ public class Registration
     public int ParticipantId { get; set; }
     public string RaceNum { get; set; } = string.Empty;
     public DateOnly RegistrationDate { get; set; }
+    public string Status { get; set; } = "Pending";
 
     public Category Category { get; set; } = null!;
     public Participant Participant { get; set; } = null!;

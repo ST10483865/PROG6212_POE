@@ -18,8 +18,9 @@ public class RegistrationsController : ControllerBase
         q.Select(r => new RegistrationResponse(
             r.RegistrationId, r.CategoryId, r.Category.CategoryName,
             r.Category.EventId, r.Category.Event.Name,
+            r.Category.Event.Date, r.Category.Event.Location,
             r.ParticipantId, r.Participant.User.Name,
-            r.RaceNum, r.RegistrationDate));
+            r.RaceNum, r.RegistrationDate, r.Status));
 
     /// <summary>Enters the logged-in Participant into an event by selecting a category.</summary>
     /// <remarks>
@@ -65,7 +66,8 @@ public class RegistrationsController : ControllerBase
             CategoryId = category.CategoryId,
             ParticipantId = participantId,
             RaceNum = raceNum,
-            RegistrationDate = DateOnly.FromDateTime(DateTime.UtcNow)
+            RegistrationDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            Status = RegistrationStatuses.Pending   // the Organiser confirms it later
         };
         _db.Registrations.Add(registration);
         await _db.SaveChangesAsync();
@@ -141,6 +143,36 @@ public class RegistrationsController : ControllerBase
         return Ok(dto);
     }
 
+    /// <summary>Sets an enrolment's status to Pending or Confirmed. Only the Organiser who owns the event.</summary>
+    /// <response code="200">Returns the updated registration.</response>
+    /// <response code="400">Status is not Pending or Confirmed.</response>
+    /// <response code="401">Not logged in.</response>
+    /// <response code="403">Participant, or an Organiser who does not own this event.</response>
+    /// <response code="404">Registration not found.</response>
+    [HttpPut("/api/registrations/{id:int}/status")]
+    [Authorize(Roles = AppRoles.Organiser)]
+    [ProducesResponseType(typeof(RegistrationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateStatus(int id, [FromBody] RegistrationStatusRequest req)
+    {
+        var status = RegistrationStatuses.Normalise(req.Status);
+        if (status is null) return BadRequest(new MessageResponse("Status must be Pending or Confirmed."));
+
+        var reg = await _db.Registrations.Include(r => r.Category).ThenInclude(c => c.Event)
+            .FirstOrDefaultAsync(r => r.RegistrationId == id);
+        if (reg is null) return NotFound();
+        if (reg.Category.Event.OrganiserId != User.GetProfileId()) return Forbid();
+
+        reg.Status = status;
+        await _db.SaveChangesAsync();
+
+        var dto = await Project(_db.Registrations.AsNoTracking().Where(r => r.RegistrationId == id)).FirstAsync();
+        return Ok(dto);
+    }
+
     /// <summary>Withdraws the logged-in Participant from an event.</summary>
     /// <response code="200">Registration cancelled.</response>
     /// <response code="401">Not logged in.</response>
@@ -164,3 +196,4 @@ public class RegistrationsController : ControllerBase
     }
 
 }
+

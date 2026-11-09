@@ -8,6 +8,8 @@ public class User
     public string Email { get; set; } = string.Empty;
     public string Gender { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
+    public string? ProfilePictureBlob { get; set; }
+
 
     public Organiser? Organiser { get; set; }
     public Participant? Participant { get; set; }

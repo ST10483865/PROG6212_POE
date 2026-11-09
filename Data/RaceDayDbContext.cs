@@ -30,6 +30,7 @@ public class RaceDayDbContext : DbContext
             e.HasIndex(x => x.Email).IsUnique();
             e.Property(x => x.Gender).HasMaxLength(20).IsRequired();
             e.Property(x => x.PasswordHash).HasColumnName("Password_Hash").HasMaxLength(255).IsRequired();
+            e.Property(x => x.ProfilePictureBlob).HasColumnName("Profile_picture_blob").HasMaxLength(255);
         });
 
         b.Entity<Organiser>(e =>
@@ -69,6 +70,7 @@ public class RaceDayDbContext : DbContext
             e.Property(x => x.Location).HasMaxLength(200).IsRequired();
             e.Property(x => x.Date).HasColumnType("date");
             e.Property(x => x.Time).HasColumnType("time");
+            e.Property(x => x.BannerBlob).HasColumnName("Banner_blob").HasMaxLength(255);
             // Organiser 1:M Event
             e.HasOne(x => x.Organiser).WithMany(o => o.Events)
                 .HasForeignKey(x => x.OrganiserId).OnDelete(DeleteBehavior.Cascade);
@@ -112,6 +114,8 @@ public class RaceDayDbContext : DbContext
             e.Property(x => x.RaceNum).HasColumnName("Race_num").HasMaxLength(20).IsRequired();
             e.HasIndex(x => x.RaceNum).IsUnique();
             e.Property(x => x.RegistrationDate).HasColumnName("Registration_date").HasColumnType("date");
+            e.Property(x => x.Status).HasColumnName("Status").HasMaxLength(20).IsRequired();
+
 
             // Category 1:M Registration
             e.HasOne(x => x.Category).WithMany(c => c.Registrations)
@@ -132,6 +136,7 @@ public class RaceDayDbContext : DbContext
             e.Property(x => x.ResultId).HasColumnName("Results_ID");
             e.Property(x => x.RegistrationId).HasColumnName("Registration_ID");
             e.Property(x => x.FinishTime).HasColumnName("Finish_time").HasColumnType("time");
+            e.Property(x => x.IsPublished).HasColumnName("Is_published");
             // Registration 1:1 Results
             e.HasOne(x => x.Registration).WithOne(r => r.Result)
                 .HasForeignKey<Result>(x => x.RegistrationId).OnDelete(DeleteBehavior.Cascade);

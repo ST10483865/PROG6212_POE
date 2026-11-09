@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.37111.16 d17.14
+VisualStudioVersion = 17.14.37111.16
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RaceDay_api", "RaceDay_api.csproj", "{2611B718-B6D9-4315-A0E8-460D6497301D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RaceDay_Web", "..\RaceDay_Web\RaceDay_Web.csproj", "{24A08009-338F-4C14-A851-A5015953281C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{2611B718-B6D9-4315-A0E8-460D6497301D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2611B718-B6D9-4315-A0E8-460D6497301D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2611B718-B6D9-4315-A0E8-460D6497301D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{24A08009-338F-4C14-A851-A5015953281C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{24A08009-338F-4C14-A851-A5015953281C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{24A08009-338F-4C14-A851-A5015953281C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{24A08009-338F-4C14-A851-A5015953281C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

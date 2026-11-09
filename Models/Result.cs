@@ -6,6 +6,7 @@ public class Result
     public int RegistrationId { get; set; }
     public TimeSpan? FinishTime { get; set; }
     public int? Position { get; set; }
+    public bool IsPublished { get; set; }
     public Registration Registration { get; set; } = null!;
 
 

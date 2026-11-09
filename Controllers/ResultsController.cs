@@ -15,14 +15,18 @@ public class ResultsController : ControllerBase
     private readonly RaceDayDbContext _db;
     public ResultsController(RaceDayDbContext db) => _db = db;
 
-    private static IQueryable<ResultResponse> Project(IQueryable<Result> q) =>
+    private IQueryable<ResultResponse> Project(IQueryable<Result> q) =>
         q.Select(x => new ResultResponse(
             x.ResultId, x.RegistrationId,
-            x.Registration.Category.EventId, x.Registration.Category.Event.Name, x.Registration.Category.CategoryName,
+            x.Registration.Category.EventId, x.Registration.Category.Event.Name, x.Registration.Category.Event.Date,
+            x.Registration.Category.CategoryName,
             x.Registration.ParticipantId, x.Registration.Participant.User.Name,
-            x.Registration.RaceNum, x.FinishTime, x.Position));
+            x.Registration.RaceNum, x.FinishTime, x.Position,
+            _db.Results.Count(y => y.IsPublished && y.Registration.CategoryId == x.Registration.CategoryId),
+            x.IsPublished));
 
     /// <summary>Captures a finish time and position for a participant's registration. Organisers only.</summary>
+    /// <remarks>Set isPublished to false to save a result without showing it yet.</remarks>
     /// <response code="201">Result recorded. Returns the new ResultId.</response>
     /// <response code="400">Validation failed.</response>
     /// <response code="401">Not logged in.</response>
@@ -45,7 +49,13 @@ public class ResultsController : ControllerBase
         if (await _db.Results.AnyAsync(r => r.RegistrationId == req.RegistrationId))
             return Conflict(new MessageResponse("A result already exists for this registration."));
 
-        var result = new Result { RegistrationId = req.RegistrationId, FinishTime = req.FinishTime, Position = req.Position };
+        var result = new Result
+        {
+            RegistrationId = req.RegistrationId,
+            FinishTime = req.FinishTime,
+            Position = req.Position,
+            IsPublished = req.IsPublished
+        };
         _db.Results.Add(result);
         await _db.SaveChangesAsync();
 
@@ -53,8 +63,8 @@ public class ResultsController : ControllerBase
         return Created($"/api/results/{result.ResultId}", dto);
     }
 
-    /// <summary>Public leaderboard for an event, ordered by finishing position.</summary>
-    /// <response code="200">Array of results ordered by position.</response>
+    /// <summary>Public leaderboard for an event: published results only, ordered by position.</summary>
+    /// <response code="200">Array of published results ordered by position.</response>
     /// <response code="404">Event not found.</response>
     [HttpGet("/api/events/{eventId:int}/results")]
     [AllowAnonymous]
@@ -65,13 +75,35 @@ public class ResultsController : ControllerBase
         if (!await _db.Events.AnyAsync(e => e.EventId == eventId)) return NotFound();
 
         var list = await Project(_db.Results.AsNoTracking()
+            .Where(x => x.IsPublished && x.Registration.Category.EventId == eventId)
+            .OrderBy(x => x.Position == null).ThenBy(x => x.Position).ThenBy(x => x.FinishTime)).ToListAsync();
+        return Ok(list);
+    }
+
+    /// <summary>All results for one of the Organiser's events, including unpublished ones.</summary>
+    /// <response code="200">Array of results (published and unpublished).</response>
+    /// <response code="401">Not logged in.</response>
+    /// <response code="403">Participant, or an Organiser who does not own this event.</response>
+    /// <response code="404">Event not found.</response>
+    [HttpGet("/api/events/{eventId:int}/results/all")]
+    [Authorize(Roles = AppRoles.Organiser)]
+    [ProducesResponseType(typeof(IEnumerable<ResultResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAllForEvent(int eventId)
+    {
+        var ev = await _db.Events.AsNoTracking().FirstOrDefaultAsync(e => e.EventId == eventId);
+        if (ev is null) return NotFound();
+        if (ev.OrganiserId != User.GetProfileId()) return Forbid();
+
+        var list = await Project(_db.Results.AsNoTracking()
             .Where(x => x.Registration.Category.EventId == eventId)
             .OrderBy(x => x.Position == null).ThenBy(x => x.Position).ThenBy(x => x.FinishTime)).ToListAsync();
         return Ok(list);
     }
 
-    /// <summary>Gets the logged-in Participant's own result history.</summary>
-    /// <response code="200">Array of the participant's results.</response>
+    /// <response code="200">Array of the participant's published results.</response>
     /// <response code="401">Not logged in.</response>
     /// <response code="403">Organiser, or the ID belongs to a different participant.</response>
     [HttpGet("/api/participants/{id:int}/results")]
@@ -82,12 +114,13 @@ public class ResultsController : ControllerBase
     public async Task<IActionResult> GetForParticipant(int id)
     {
         if (id != User.GetProfileId()) return Forbid();
-        var list = await Project(_db.Results.AsNoTracking().Where(x => x.Registration.ParticipantId == id)
-            .OrderBy(x => x.ResultId)).ToListAsync();
+        var list = await Project(_db.Results.AsNoTracking()
+            .Where(x => x.IsPublished && x.Registration.ParticipantId == id)
+            .OrderByDescending(x => x.Registration.Category.Event.Date)).ToListAsync();
         return Ok(list);
     }
 
-    /// <summary>Corrects a captured result. Only the Organiser who owns the event.</summary>
+
     /// <response code="200">Returns the updated result.</response>
     /// <response code="401">Not logged in.</response>
     /// <response code="403">Participant, or an Organiser who does not own the event.</response>
@@ -107,6 +140,7 @@ public class ResultsController : ControllerBase
 
         result.FinishTime = req.FinishTime;
         result.Position = req.Position;
+        result.IsPublished = req.IsPublished;
         await _db.SaveChangesAsync();
 
         var dto = await Project(_db.Results.AsNoTracking().Where(x => x.ResultId == id)).FirstAsync();

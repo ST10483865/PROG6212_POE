@@ -19,20 +19,22 @@ public class EventsController : ControllerBase
     {
         var route = e.Routes.OrderBy(r => r.RouteId).FirstOrDefault();
         return new EventResponse(e.EventId, e.OrganiserId, e.Name, e.Description, e.EventType, e.Location, e.Date, e.Time,
-            route is null ? null : new RouteResponse(route.RouteId, route.StartingPoint, route.EndingPoint, route.Distance));
+            route is null ? null : new RouteResponse(route.RouteId, route.StartingPoint, route.EndingPoint, route.Distance),
+            e.BannerBlob is null ? null : $"/api/events/{e.EventId}/banner");
     }
 
     /// <summary>Lists events, optionally filtered.</summary>
     /// <param name="location">Optional. Events whose location contains this text.</param>
     /// <param name="date">Optional. Events on this date (yyyy-MM-dd).</param>
     /// <param name="type">Optional. Run, Walk or Cycle.</param>
+    /// <param name="upcoming">Optional. true = only events happening today or later.</param>
     /// <response code="200">Array of events ordered by date, each with its route (including distance).</response>
     /// <response code="400">The type filter is not Run, Walk or Cycle.</response>
     [HttpGet("/api/events")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(IEnumerable<EventResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetAll([FromQuery] string? location, [FromQuery] DateOnly? date, [FromQuery] string? type)
+    public async Task<IActionResult> GetAll([FromQuery] string? location, [FromQuery] DateOnly? date, [FromQuery] string? type, [FromQuery] bool? upcoming)
     {
         var query = _db.Events.AsNoTracking().Include(e => e.Routes).AsQueryable();
 
@@ -40,6 +42,11 @@ public class EventsController : ControllerBase
             query = query.Where(e => e.Location.Contains(location));
         if (date.HasValue)
             query = query.Where(e => e.Date == date.Value);
+        if (upcoming == true)
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(2)); // South African time
+            query = query.Where(e => e.Date >= today);
+        }
         if (!string.IsNullOrWhiteSpace(type))
         {
             var normalised = EventTypes.Normalise(type);
@@ -49,6 +56,41 @@ public class EventsController : ControllerBase
 
         var events = await query.OrderBy(e => e.Date).ThenBy(e => e.Time).ToListAsync();
         return Ok(events.Select(ToResponse));
+    }
+
+    /// <summary>Organiser dashboard: the logged-in Organiser's own events with enrolment totals.</summary>
+    /// <response code="200">Array of the Organiser's events ordered by date, each with its enrolment count.</response>
+    /// <response code="401">Not logged in.</response>
+    /// <response code="403">Logged in as a Participant.</response>
+    [HttpGet("/api/events/mine")]
+    [Authorize(Roles = AppRoles.Organiser)]
+    [ProducesResponseType(typeof(IEnumerable<EventSummaryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMine()
+    {
+        var organiserId = User.GetProfileId();
+        var rows = await _db.Events.AsNoTracking()
+            .Where(e => e.OrganiserId == organiserId)
+            .OrderBy(e => e.Date).ThenBy(e => e.Time)
+            .Select(e => new
+            {
+                e.EventId,
+                e.Name,
+                e.EventType,
+                e.Location,
+                e.Date,
+                e.Time,
+                Distance = e.Routes.OrderBy(r => r.RouteId).Select(r => (decimal?)r.Distance).FirstOrDefault(),
+                Categories = e.Categories.Count,
+                Enrolments = e.Categories.SelectMany(c => c.Registrations).Count(),
+                HasBanner = e.BannerBlob != null
+            })
+            .ToListAsync();
+
+        return Ok(rows.Select(x => new EventSummaryResponse(
+            x.EventId, x.Name, x.EventType, x.Location, x.Date, x.Time, x.Distance, x.Categories, x.Enrolments,
+            x.HasBanner ? $"/api/events/{x.EventId}/banner" : null)));
     }
 
     /// <summary>Gets one event, including its route.</summary>

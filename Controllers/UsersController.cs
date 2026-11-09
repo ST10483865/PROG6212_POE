@@ -10,16 +10,18 @@ using AppUser = RaceDay_api.Models.User;
 
 namespace RaceDay_api.Controllers;
 
+/// <summary>Profile endpoints. Both roles can only see and change their own profile.</summary>
 [ApiController]
 [Authorize]
 public class UsersController : ControllerBase
-{//start of class
+{
     private readonly RaceDayDbContext _db;
     public UsersController(RaceDayDbContext db) => _db = db;
 
     private static UserResponse ToResponse(AppUser u) =>
-    new(u.UserId, u.Name, u.Contact, u.Email, u.Gender,
-        u.Organiser is not null ? AppRoles.Organiser : AppRoles.Participant);
+        new(u.UserId, u.Name, u.Contact, u.Email, u.Gender,
+            u.Organiser is not null ? AppRoles.Organiser : AppRoles.Participant,
+            u.ProfilePictureBlob is null ? null : $"/api/users/{u.UserId}/picture");
 
 
     /// <summary>Gets the logged-in user's own profile.</summary>
@@ -106,7 +108,4 @@ public class UsersController : ControllerBase
         return Ok(new MessageResponse("Account deleted."));
     }
 
-
-}//end of class
-
-
+}

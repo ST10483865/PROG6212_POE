@@ -1,20 +1,21 @@
+using System.Reflection;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using RaceDay_api.Data;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
+using RaceDay_api.Services;
 using AppUser = RaceDay_api.Models.User;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Database (SQL Server via EF Core, Code-First) 
+// Database (SQL Server via EF Core, Code-First)
 builder.Services.AddDbContext<RaceDayDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Password hashing (salted PBKDF2 - the original password is never stored) 
+// Password hashing (salted PBKDF2 - the original password is never stored)
 builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 
-// Session authentication (cookie carries the user's ID and role) 
+// Session authentication (cookie carries the user's ID and role)
 builder.Services
     .AddAuthentication(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -29,9 +30,12 @@ builder.Services
     });
 builder.Services.AddAuthorization();
 
+//  Azure Blob Storage (event banners and profile pictures) 
+builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
+
 builder.Services.AddControllers();
 
-// Swagger (descriptions come from the XML comments on the controllers) ----
+// Swagger (descriptions come from the XML comments on the controllers) 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {

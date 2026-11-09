@@ -12,6 +12,7 @@ public class Event
     public string Location { get; set; } = string.Empty;
     public DateOnly Date { get; set; }
     public TimeOnly Time { get; set; }
+    public string? BannerBlob { get; set; }
 
     public Organiser Organiser { get; set; } = null!;
     public ICollection<RaceRoute> Routes { get; set; } = new List<RaceRoute>();
