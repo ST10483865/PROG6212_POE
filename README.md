@@ -77,7 +77,7 @@ _SQL Server Management Studio 2022
  ## THE PROJECT HAS  TWO BRANCHES
  ## _MAIN Contains Part 1
  ## -Master Contains Part2
- ##- Part3 updates
+ ## - Part3 updates that contains part3
 
  
 
