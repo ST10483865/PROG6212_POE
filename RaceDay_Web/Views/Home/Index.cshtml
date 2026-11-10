@@ -1,0 +1,60 @@
+﻿@{
+    ViewData["Title"] = "Home";
+    var user = Context.Session.GetCurrentUser();
+}
+
+<section class="hero mb-5">
+    <span class="hero-tag">South Africa's road events platform</span>
+    <h1 class="hero-title">Your race day,<br />sorted.</h1>
+    <p class="hero-text">
+        Organisers create events, manage categories and publish results. Participants find races, enter in seconds
+        and track every finish. All in one place.
+    </p>
+    @if (user is null)
+    {
+        <a class="btn btn-primary btn-lg me-2" href="/Account/Register">Get started</a>
+        <a class="btn btn-outline-light btn-lg" href="/Account/Login">Log in</a>
+    }
+    else if (user.IsOrganiser)
+    {
+        <p class="hero-welcome">Welcome back, @user.Name.</p>
+        <a class="btn btn-primary btn-lg me-2" href="/Organiser/Dashboard">Go to my dashboard</a>
+        <a class="btn btn-outline-light btn-lg" href="/Organiser/Events">Manage events</a>
+    }
+    else
+    {
+        <p class="hero-welcome">Welcome back, @user.Name.</p>
+        <a class="btn btn-primary btn-lg me-2" href="/Events">Find a race</a>
+        <a class="btn btn-outline-light btn-lg" href="/Enrolments">My enrolments</a>
+    }
+</section>
+
+<section class="row g-4">
+    <div class="col-md-4">
+        <div class="card feature-card h-100">
+            <div class="card-body">
+                <i class="bi bi-megaphone feature-icon"></i>
+                <h2 class="h4">For Organisers</h2>
+                <p>Create events with banners and routes, set up distance and age categories, see who has entered, and publish finish times.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card feature-card h-100">
+            <div class="card-body">
+                <i class="bi bi-person-running feature-icon"></i>
+                <h2 class="h4">For Participants</h2>
+                <p>Browse upcoming events, filter by type and location, enter your favourite category and follow your enrolment status.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card feature-card h-100">
+            <div class="card-body">
+                <i class="bi bi-trophy feature-icon"></i>
+                <h2 class="h4">Every finish counts</h2>
+                <p>See your finish time and position for every completed event, for example 47th out of 312 finishers.</p>
+            </div>
+        </div>
+    </div>
+</section>

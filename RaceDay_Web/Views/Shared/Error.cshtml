@@ -1,0 +1,19 @@
+﻿@{
+    var code = ViewBag.Code as int?;
+    ViewData["Title"] = code == 404 ? "Page not found" : "Something went wrong";
+}
+<div class="text-center py-5">
+    <h1 class="error-code">@(code == 404 ? "404" : "Oops")</h1>
+    <p class="lead">
+        @if (code == 404)
+        {
+            <text>We could not find the page you were looking for.</text>
+        }
+        else
+        {
+            <text>Something went wrong on our side. Please try again in a moment.</text>
+        }
+    </p>
+    <a href="/" class="btn btn-primary">Back to home</a>
+</div>
+

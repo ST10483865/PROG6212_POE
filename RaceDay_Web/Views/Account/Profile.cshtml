@@ -1,0 +1,27 @@
+﻿@model UserResponse
+@{
+    ViewData["Title"] = "My Profile";
+}
+
+<h1 class="page-title">My Profile</h1>
+
+<div class="card" style="max-width: 640px;">
+    <div class="card-body p-4">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <span class="avatar avatar-lg">@(Model.Name.Length > 0 ? Model.Name[0].ToString().ToUpper() : "?")</span>
+            <div>
+                <h2 class="h4 mb-0">@Model.Name</h2>
+                <span class="type-badge">@Model.Role</span>
+            </div>
+        </div>
+        <dl class="row mb-0">
+            <dt class="col-sm-4">Email</dt>
+            <dd class="col-sm-8">@Model.Email</dd>
+            <dt class="col-sm-4">Contact</dt>
+            <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.Contact) ? "Not provided" : Model.Contact)</dd>
+            <dt class="col-sm-4">Gender</dt>
+            <dd class="col-sm-8">@Model.Gender</dd>
+        </dl>
+        <p class="text-muted small mt-4 mb-0">This page reads your details from the RaceDay API. Editing and profile pictures are added in a later phase.</p>
+    </div>
+</div>
